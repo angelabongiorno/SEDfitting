@@ -1,0 +1,10 @@
+Data
+LIBRARY
+OUTPUT
+tmp
+*.pickle
+a.out
+.*
+*.tmp
+*.exe
+*.f
