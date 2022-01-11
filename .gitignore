@@ -8,3 +8,4 @@ a.out
 *.tmp
 *.exe
 *.f
+__pycache__

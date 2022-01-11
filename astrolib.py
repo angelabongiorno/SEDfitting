@@ -140,27 +140,42 @@ class LibraryObject:
         Calculated luminosity distance in Mpc for the redshift and constructor parameters.
     """
 
-    def __init__(self, id, data):
+    def __init__(self, filename, data=None, lazyload = False):
         """
         Parameters:
-        id: str
-            Identifier of the library object. 
+        filename: str
+            Identifier of the library object as filename pointing to the data. 
         data: pandas.core.frame.DataFrame
-            All data of the library object. At least Flam_log column is required.
+            All data of the library object. At least Flam_log column is required if supplied
+        lazyload: Boolean
+            Whether to load the file data immediately or when used.
         """
-        self.id = id
+        self.id = filename
+
+        if data is None:
+            self.load_data()
+        else:
+            self.set_data(data)
+
+    def load_data(self):
+        with open (self.id, 'r') as mf:
+            tempModel = []
+            for mline in mf:
+               values = mline.split()
+               #print(f"Freq: {values[0]}, Value: {values[1]}")
+               tempModel.append({ 'lambda_em': float(values[0]), 'Flam_log': float(values[1]) })
+            self.set_data(pd.DataFrame(tempModel)) 
+
+
+    def set_data(self, data):
         self.data = data
-        # col_str = ""
-        # for col in self.data.columns:
-        #     col_str += " " + str(col)
-        # print(col_str)
-        
         if ('Flam_log' in self.data):
             self.data['Flam_log'] = [ x if x > 0 else 0 for x in self.data['Flam_log'] ]
             self.data['Flam'] = [ 10 ** x for x in self.data['Flam_log']]
         else:
             print(f"ERROR: model {self.id} missing required data.")
             print(self.data.head())
+
 
     def print(self):
         """

@@ -13,7 +13,6 @@ from scipy import optimize
 
 import astrolib as al
 import temp_code as tc
-import file_operations as fo
 
 # Reading of data file
 def read_data_file(filename, fformat):
@@ -131,14 +130,8 @@ if (Path(AGNPickle).exists()):
 else:
     with open (sedAGNModelName, 'r') as f:
         for fline in f:
-            if (len(fline) > 1):
-                with open (fline.split()[0], 'r') as mf:
-                    tempModel = []
-                    for mline in mf:
-                        values = mline.split()
-                        #print(f"Freq: {values[0]}, Value: {values[1]}")
-                        tempModel.append({ 'lambda_em': float(values[0]), 'Flam_log': float(values[1]) })
-                    sedAGNModelArray.append( al.LibraryObject( fline.split()[0], pd.DataFrame(tempModel)) )
+            if len(fline.split()) > 0:
+                sedAGNModelArray.append( al.LibraryObject(fline.split()[0]) )
     print("Writing AGN to pickle.")
     pickle.dump(sedAGNModelArray, open(AGNPickle, "wb"))
 #sedAGNModelArray[0].print()
@@ -157,14 +150,8 @@ if (Path(GALPickle).exists()):
 else:
     with open (sedGALModelName, 'r') as f:
         for fline in f:
-            if (len(fline) > 1):
-                with open (fline.split()[0], 'r') as mf:
-                    tempModel = []
-                    for mline in mf:
-                        values = mline.split()
-                        #print(f"Freq: {values[0]}, Value: {values[1]}")
-                        tempModel.append({ 'lambda_em': float(values[0]), 'Flam_log': float(values[1]) })
-                    sedGALModelArray.append( al.LibraryObject( fline.split()[0], pd.DataFrame(tempModel)) ) 
+            if len(fline.split()) > 0:
+                sedGALModelArray.append( al.LibraryObject(fline.split()[0]) )
     print("Writing GAL to pickle.")
     pickle.dump(sedGALModelArray, open(GALPickle, "wb"))
 # sedGALModelArray[0].print()
