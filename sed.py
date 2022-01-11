@@ -160,6 +160,7 @@ toc = time.perf_counter()
 print(f"GAL models read in {toc-tic:0.4f} seconds.")
 
 
+
 AOArray[0].print()
 plot_y = []
 for i in range(len(AOArray[0].data['Flam_log'])):
@@ -308,23 +309,18 @@ methods = [
 
 
 
-# for method in methods:
-#    res = optimize.minimize( chi2_for_minimize, [0.1, 0.1],
-#                        args=(fobs, fobs_err, fAGN, fGAL), method=method,
-#                        options={ "maxiter": 100000, "disp": False})
-#
-#    # print(res)
-#
-#    kAGN = ( res.x[0] / fAGN_max) * fobs_max
-#    kGAL = ( res.x[1] / fGAL_max) * fobs_max
-#
-#    print(f"\n{method=}\n{res.message}\n")
-#    print(f"{kAGN=}")
-#    print(f"{kGAL=}")
-#
-#    fAGN_final = fAGN * kAGN
-#    fGAL_final = fGAL * kGAL
-#
+for method in methods:
+   res = optimize.minimize( chi2_for_minimize, [0.1, 0.1],
+                       args=(fobs, fobs_err, fAGN, fGAL), method=method,
+                       options={ "maxiter": 100000, "disp": False})
+   # print(res)
+   kAGN = ( res.x[0] / fAGN_max) * fobs_max
+   kGAL = ( res.x[1] / fGAL_max) * fobs_max
+   print(f"\n{method=}\n{res.message}\n")
+   print(f"{kAGN=}")
+   print(f"{kGAL=}")
+   fAGN_final = fAGN * kAGN
+   fGAL_final = fGAL * kGAL
 #    # plt.scatter(sedAGNModelArray[81].interpolated_data['lambda_em'], fAGN_final, color='yellow')
 #    # plt.scatter(sedGALModelArray[18].interpolated_data['lambda_em'], fGAL_final, color='green')
 #    # plt.pause(0.05)
