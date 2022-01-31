@@ -216,12 +216,58 @@ class LibraryObject:
             # print(f" lower value: {lower}: {float(low_element['Flam'])}")
             # print(f" higher value: {higher}: {float(high_element['Flam'])}.")
 
-            interp = interpolate.interp1d( [lower, higher], [ float(low_element['Flam']),float(high_element['Flam']) ])
-
+            #interp = interpolate.interp1d( [lower, higher], [ float(low_element['Flam']),float(high_element['Flam']) ])
+            interp = float(low_element['Flam']) +((float(high_element['Flam'])-float(low_element['Flam']))/(higher-lower))*(ao_le-lower)
             # print(f"interpolated Flam: {float(interp(ao_le))}")       
 
+            #temp_model.append({'lambda_em': ao_le,
+                               #'Flam':  float(interp(ao_le)) })
             temp_model.append({'lambda_em': ao_le,
-                               'Flam':  float(interp(ao_le)) })
+                               'Flam':  float(interp)})
+        # print(temp_model)
+        self.interpolated_data = pd.DataFrame(temp_model)
+        
+    def normalize(self):
+            self.norm =self.data['Flam'].max()
+            self.data['Flam']=self.data['Flam']/self.norm
+    
+    def calc_measured_values2(self, lambda_em):
+        """
+        Interpolates values corresponding to the measures object, to which the library object is
+        compared to. Creates new attribute interpolated_data, which contains 'labda_em' and 'Flam' 
+        columns. 'Lambda_em' is copied from function parameter and 'Flam' is interpolated from the 
+        model data using Scipy interpolate.interp1d() function.
+        
+        Parameters:
+        lambda em: pandas.core.frame.DataFrame
+            Array holding all the measured values which needs values for Chi2 error calculation.
+        """
+        temp_model = []
+
+        for ao_le in lambda_em:
+            low_index,  high_index = (0, len(self.data['lambda_em'])) # variables to store the index of the tempalte array
+            if (ao_le <self.data['lambda_em'].iloc[low_index]) or (ao_le>self.data['lambda_em'].iloc[high_index-1]):
+               temp_model.append({'lambda_em': ao_le,
+                               'Flam':  0}) 
+                
+            else:
+                 while True:
+                      if high_index-low_index ==1 or high_index-low_index==0:
+                          lower = self.data['lambda_em'].iloc[high_index-1]
+                          higher = self.data['lambda_em'].iloc[high_index]
+                          low_element = self.data['Flam'].iloc[high_index-1]
+                          high_element = self.data['Flam'].iloc[high_index]
+                          break
+                          
+                      middle_index = int((high_index+low_index)/2)
+                      if ao_le < self.data['lambda_em'].iloc[middle_index]:
+                           high_index = middle_index
+                      elif ao_le >= self.data['lambda_em'].iloc[middle_index]:
+                           low_index = middle_index
+            
+                 interp = float(low_element) +((float(high_element)-float(low_element))/(higher-lower))*(ao_le-lower)
+                 temp_model.append({'lambda_em': ao_le,
+                               'Flam':  float(interp)})
         # print(temp_model)
         self.interpolated_data = pd.DataFrame(temp_model)
 

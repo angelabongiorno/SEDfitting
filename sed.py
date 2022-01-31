@@ -10,6 +10,7 @@ import math
 import astropy.units as u
 from scipy import interpolate
 from scipy import optimize
+from itertools import product 
 
 import astrolib as al
 import temp_code as tc
@@ -37,7 +38,7 @@ def convert_data_to_astro_object(dataarray, cosmConstant, Omega_m):
     
     return returnArray
 
-# Reading of lamda file
+# Reading of lambda file
 def read_lambda_file(filename, fformat):
     tmpArray = []
 
@@ -48,6 +49,28 @@ def read_lambda_file(filename, fformat):
 
     return tmpArray
 
+def chi2_for_minimize(x, *args):
+    err = 0
+    obs = args[0]
+    obs_err = args[1]
+
+    library_array = []
+    for i in range(2, len(args)):
+        library_array.append(args[i] * x[i-2])
+    
+    for i in range(len(obs)):
+        lib_sum = 0
+        for lib in library_array:
+            lib_sum += lib[i]
+
+        err += ((obs[i] - lib_sum)**2)/(obs_err[i]*obs_err[i])   
+
+    return(err)
+
+#def chi2_for_computation(fobs, err, fluxes, norms):
+    #for i in 
+    #chi = sum(((fobs-fagn-fgal)/err)**2)
+    #return(chi)
 
 
 tic =  time.perf_counter()
@@ -60,7 +83,7 @@ with open ('tmp/input.tmp', 'r') as f:
     nrMagn = int(f.readline().split()[0])           # NOT USED Number of magnitudes. This should be the same as the number of float pairs in inputFormat
     lambdaFile = f.readline().split()[0]            # Lambdas (the frequencies) for the inputs (x-axis)
     lambdaFormat = f.readline().split()[0]          # Lambda file formt for the FortranFormat
-    cosmConstant = int(f.readline().split()[0])     # Plain cosmology constant
+    cosmConstant = float(f.readline().split()[0])  ################ int--->float   # Plain cosmology constant
     Omega_m = float(f.readline().split('d0')[0])    # Fortram formatted Omega_m
     Omega_l = float(f.readline().split('d0')[0])    # Fortran formatted Omega_l
  
@@ -147,6 +170,7 @@ GALPickle = "GAL.pickle"
 if (Path(GALPickle).exists()):
     print("Reading GAL from pickle.")
     sedGALModelArray = pickle.load(open(GALPickle, "rb"))
+    #print(sedGALModelArray)
 else:
     with open (sedGALModelName, 'r') as f:
         for fline in f:
@@ -159,15 +183,33 @@ else:
 toc = time.perf_counter()
 print(f"GAL models read in {toc-tic:0.4f} seconds.")
 
+tic = time.perf_counter()
+for AGN_model in sedAGNModelArray:
+        AGN_model.normalize()
+toc = time.perf_counter()
+print(f"AGN templates normalized in {toc-tic:0.4} seconds.")
 
+
+tic = time.perf_counter()
+for GAL_model in sedGALModelArray:
+    if GAL_model.id !=  'LIBRARY/SED_GAL/BC_EXT/bcCHAB_tau30_4.0Gyr.st_4':
+       GAL_model.normalize()
+toc = time.perf_counter()
+print(f"Galaxy templates normalized in {toc-tic:0.4} seconds.")
+
+tic =time.perf_counter()
+for GAL_model in sedGALModelArray:
+    if GAL_model.id !=  'LIBRARY/SED_GAL/BC_EXT/bcCHAB_tau30_4.0Gyr.st_4':
+        GAL_model.calc_measured_values2(AOArray[0].data['lambda_em']) 
+toc = time.perf_counter()
+print(f"Galaxy templates interpolated in {toc-tic:0.4} seconds.")
+                        
 
 AOArray[0].print()
 plot_y = []
 for i in range(len(AOArray[0].data['Flam_log'])):
     plot_y.append( AOArray[0].data['lambda'][i] *  AOArray[0].data['Flam'][i] )
 AOArray[0].data['norm_flux'] = plot_y
-
-
 
 print(f"AGN model: {sedAGNModelArray[81].id}.")
 plot_y_agn = []
@@ -195,9 +237,9 @@ y_min = min(plot_y)
 plt.xlim( [ x_min * 0.7, x_max * 1.3])
 plt.ylim( [ y_min * 0.5, y_max * 1.5])
 
-plt.scatter(AOArray[0].data['lambda_em'], plot_y, c='black')
-plt.plot(sedAGNModelArray[81].data['lambda_em'], plot_y_agn, color='blue')
-plt.plot(sedGALModelArray[18].data['lambda_em'], plot_y_gal, color='magenta')
+#plt.scatter(AOArray[0].data['lambda_em'], plot_y, c='black')
+#plt.plot(sedAGNModelArray[81].data['lambda_em'], plot_y_agn, color='blue')
+#plt.plot(sedGALModelArray[18].data['lambda_em'], plot_y_gal, color='magenta')
 # plt.plot(sum_object.data['lambda_em'], sum_object.data['norm_flux'])
 
 plt.yscale("log")
@@ -237,7 +279,7 @@ fobs_err = AOArray[0].data[['errFlam']].to_numpy().flatten()
 
 # print(f"FOBS_err: {fobs_err}")
 
-fobs = np.multiply(AOArray[0].data['lambda_em'].to_numpy(), AOArray[0].data['Flam'].to_numpy())
+fobs = np.multiply(AOArray[0].data['lambda'].to_numpy(), AOArray[0].data['Flam'].to_numpy())########### lambda_em---->lambda (lambda_obs)
 fAGN = np.multiply(sedAGNModelArray[81].interpolated_data['Flam'].to_numpy(), sedAGNModelArray[81].interpolated_data['lambda_em'].to_numpy())
 fGAL = np.multiply(sedGALModelArray[18].interpolated_data['Flam'].to_numpy(), sedGALModelArray[18].interpolated_data['lambda_em'].to_numpy()) 
 
@@ -265,6 +307,7 @@ fGAL_max = fGAL.max()
 
 # Normalize the fluxes
 fobs_norm = fobs / fobs_max
+fobs_err_norm = fobs_err/fobs_max     ########### Normalize the errors
 fAGN_norm = fAGN / fAGN_max
 fGAL_norm = fGAL / fGAL_max
 
@@ -284,21 +327,21 @@ def chi2_for_minimize(x, *args):
         for lib in library_array:
             lib_sum += lib[i]
 
-        err += ((obs[i] - lib_sum)**2)/obs_err[i]
+        err += ((obs[i] - lib_sum)**2)/(obs_err[i]*obs_err[i])   ########## errors^2
 
     return(err)
 
 methods = [
-    'Nelder-Mead',
-    'Powell',
-    'CG',
-    'BFGS',
+    #'Nelder-Mead',
+   'Powell',           ###### allows bounds
+    #'CG',
+    #'BFGS',
     # 'Newton-CG',
-    'L-BFGS-B',
-    'TNC',
-    'COBYLA',
-    'SLSQP',
-    'trust-constr',
+    #'L-BFGS-B',
+    #'TNC',           ####### allows bounds
+    #'COBYLA',
+    #'SLSQP',
+    #'trust-constr'   ####### allows bounds
     # 'dogleg',
     # 'trust-ncg',
     # 'trust-exact',
@@ -310,20 +353,40 @@ methods = [
 
 
 for method in methods:
-   res = optimize.minimize( chi2_for_minimize, [0.1, 0.1],
-                       args=(fobs, fobs_err, fAGN, fGAL), method=method,
-                       options={ "maxiter": 100000, "disp": False})
-   # print(res)
-   kAGN = ( res.x[0] / fAGN_max) * fobs_max
-   kGAL = ( res.x[1] / fGAL_max) * fobs_max
-   print(f"\n{method=}\n{res.message}\n")
-   print(f"{kAGN=}")
-   print(f"{kGAL=}")
-   fAGN_final = fAGN * kAGN
-   fGAL_final = fGAL * kGAL
-#    # plt.scatter(sedAGNModelArray[81].interpolated_data['lambda_em'], fAGN_final, color='yellow')
-#    # plt.scatter(sedGALModelArray[18].interpolated_data['lambda_em'], fGAL_final, color='green')
-#    # plt.pause(0.05)
+  res = optimize.minimize( chi2_for_minimize, [0.1, 0.1], ############ use normalized fluxes and add bounds
+                          args=(fobs_norm, fobs_err_norm, fAGN_norm, fGAL_norm), method=method,
+                          bounds =((0,None),(0,None)),
+                          options={ "maxiter": 100000, "disp": False})
+
+  
+
+  kAGN = ( res.x[0] / fAGN_max) * fobs_max
+  kGAL = ( res.x[1] / fGAL_max) * fobs_max
+
+  print(f"\n{method=}\n{res.message}\n")
+  print(f"{kAGN=}")
+  print(f"{kGAL=}")
+
+  fAGN_final = fAGN * kAGN
+  fGAL_final = fGAL * kGAL
+
+  plt.scatter(sedAGNModelArray[81].interpolated_data['lambda_em'], fAGN_final+fGAL_final, color='yellow')
+  #plt.scatter(sedGALModelArray[18].interpolated_data['lambda_em'], fGAL_final, color='green')
+  plt.pause(0.05)
+  
+  
+  Sya = sum((fobs*fAGN)/(fobs_err*fobs_err))
+  Saa = sum((fAGN*fAGN)/(fobs_err*fobs_err))
+  Sgg = sum((fGAL*fGAL)/(fobs_err*fobs_err))
+  Syg = sum((fobs*fGAL)/(fobs_err*fobs_err))
+  Sag = sum((fAGN*fGAL)/(fobs_err*fobs_err))
+  kAGN_true = (Sag*Syg-Sgg*Sya)/(Sag*Sag-Sgg*Saa)
+  kGAL_true = (Sag*Sya-Saa*Syg)/(Sag*Sag-Sgg*Saa)
+  
+  print(f"{kAGN_true=}")
+  print(f"{kGAL_true=}")
+
+  
 #
 # 
 # plt.scatter(sedAGNModelArray[81].interpolated_data['lambda_em'], fAGN_final, color='yellow')
