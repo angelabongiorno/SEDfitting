@@ -2,6 +2,10 @@ from astropy.cosmology import FlatLambdaCDM
 import astropy.units as u
 from astropy.units import cds
 
+from scipy import interpolate
+from scipy import optimize
+from itertools import product 
+
 import pandas as pd
 import numpy as np
 import math
@@ -307,3 +311,87 @@ class Library:
     def __init__(self, filename, data):
         self.name = filename
         self.data = data
+
+
+class Result:
+    def __init__(self, library_objects, chi2, red_chi2, coefficients):
+        self.library_objects = library_objects
+        self.chi2 = chi2
+        self.red_chi2 = red_chi2
+        self.coefficients = coefficients
+
+    def to_str(self):
+        str = ""
+
+        for obj in self.library_objects:
+            str += obj.id+", "
+
+        str += f"{self.chi2}, {self.red_chi2}, "
+
+        for coef in self.coefficients:
+            str += f"{coef}, "
+
+        str = str[:len(str)-2]
+
+        return str
+
+
+def chi2_for_minimize(x, *args):
+    err = 0
+    obs = args[0]
+    obs_err = args[1]
+
+    library_array = []
+    for i in range(2, len(args)):
+        library_array.append(args[i] * x[i-2])
+    
+    for i in range(len(obs)):
+        lib_sum = 0
+        for lib in library_array:
+            lib_sum += lib[i]
+
+        err += ((obs[i] - lib_sum)**2)/(obs_err[i]*obs_err[i])
+
+    return(err)
+
+
+def optimize_coefficients(object, library_objects):
+    methods = [
+        #'Nelder-Mead',
+        'Powell',           ###### allows bounds
+        #'CG',
+        #'BFGS',
+        # 'Newton-CG',
+        #'L-BFGS-B',
+        #'TNC',           ####### allows bounds
+        #'COBYLA',
+        #'SLSQP',
+        #'trust-constr'   ####### allows bounds
+        # 'dogleg',
+        # 'trust-ncg',
+        # 'trust-exact',
+        # 'trust-krylov'
+    ]
+
+    input_norm_data = [ i.norm_data for i in library_objects ]
+
+    initials = [0.1 for i in range(len(library_objects))]
+    bounds = [(0, None) for i in range(len(library_objects))]
+
+    for method in methods:  
+        res = optimize.minimize( chi2_for_minimize, initials,
+                          args=(object.norm_data, object.norm_err, *input_norm_data), method=method,
+                          bounds = bounds,
+                          options={ "maxiter": 100000, "disp": False})
+
+    coefficient_vector = res.x
+
+    chi2 = chi2_for_minimize(coefficient_vector, object.norm_data, object.norm_err, *input_norm_data)
+    red_chi2 = chi2 / ( len(object.norm_data) - len(library_objects))
+    
+    for i in range(len(coefficient_vector)):
+        coefficient_vector[i] = coefficient_vector[i] / library_objects[i].norm * object.norm
+
+    return(Result(library_objects, chi2, red_chi2, coefficient_vector))
+
+

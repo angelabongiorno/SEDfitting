@@ -51,24 +51,24 @@ def read_lambda_file(filename, fformat):
 
     return tmpArray
 
-def chi2_for_minimize(x, *args):
-    err = 0
-    obs = args[0]
-    obs_err = args[1]
-
-    library_array = []
-    for i in range(2, len(args)):
-        library_array.append(args[i] * x[i-2])
-    
-    for i in range(len(obs)):
-        lib_sum = 0
-        for lib in library_array:
-            lib_sum += lib[i]
-
-        err += ((obs[i] - lib_sum)**2)/(obs_err[i]*obs_err[i])
-
-    return(err)
-
+# def chi2_for_minimize(x, *args):
+#     err = 0
+#     obs = args[0]
+#     obs_err = args[1]
+# 
+#     library_array = []
+#     for i in range(2, len(args)):
+#         library_array.append(args[i] * x[i-2])
+#     
+#     for i in range(len(obs)):
+#         lib_sum = 0
+#         for lib in library_array:
+#             lib_sum += lib[i]
+# 
+#         err += ((obs[i] - lib_sum)**2)/(obs_err[i]*obs_err[i])
+# 
+#     return(err)
+ 
 
 
 tic =  time.perf_counter()
@@ -180,43 +180,55 @@ print(f"Interpolated and normalized all library objects in {toc-tic:0.4f} second
 
 # Calculating coefficients for library objects
 
-methods = [
-    #'Nelder-Mead',
-   'Powell',           ###### allows bounds
-    #'CG',
-    #'BFGS',
-    # 'Newton-CG',
-    #'L-BFGS-B',
-    'TNC',           ####### allows bounds
-    #'COBYLA',
-    #'SLSQP',
-    'trust-constr'   ####### allows bounds
-    # 'dogleg',
-    # 'trust-ncg',
-    # 'trust-exact',
-    # 'trust-krylov'
-]
+if (os.path.isfile("results.csv")):
+    print("Reading results from file.")
+    results_pd = pd.read_csv("results.csv")
+else:
+    object_array = [ lib.data for lib in libraryArray]
+    combinations = list(product(*object_array))
 
-initials = [0.1 for i in range(len(libraryArray))]
-bounds = [(0, None) for i in range(len(libraryArray))]
+    print(f"Number of combinations: {len(combinations)}")
+    tic = time.perf_counter()
+
+    results = []
+    for step in combinations:
+        inner_tic = time.perf_counter()
+        step_array = np.asarray(step)
+        res = al.optimize_coefficients(MeasuredObject, step_array)
+        inner_toc = time.perf_counter()
+
+        resultDict = {}
+        for i in range(len(step_array)):
+            resultDict[f"{i}"] = step_array[i].id
+        resultDict["Chi2"] = res.chi2
+        resultDict["Red Chi2"] = res.red_chi2
+        for i in range(len(step_array)):
+            resultDict[f"Coeff {i}"] = res.coefficients[i]
+        resultDict["Time"] = inner_toc-inner_tic
+
+        results.append(resultDict)
+
+    toc = time.perf_counter()
+    print(f"Calculating all combinations in {toc-tic:0.4f} seconds.")
+
+    results_pd = pd.DataFrame(results)
+    results_pd.to_csv("results.csv")
+
 
 agn = libraryArray[0].data[81]
 gal = libraryArray[1].data[18]
 
-for method in methods:
-  res = optimize.minimize( chi2_for_minimize, initials,
-                          args=(MeasuredObject.norm_data, MeasuredObject.norm_err, agn.norm_data, gal.norm_data), method=method,
-                          bounds = bounds,
-                          options={ "maxiter": 100000, "disp": False})
+input_models = [agn, gal]
 
-  kAGN = ( res.x[0] / agn.norm) * MeasuredObject.norm
-  kGAL = ( res.x[1] / gal.norm) * MeasuredObject.norm
+res = al.optimize_coefficients(MeasuredObject, input_models)
 
-  print(f"\n{method=}\n{res.message}\n")
-  print(f"{kAGN=}")
-  print(f"{kGAL=}")
+print(res.to_str())
 
+kAGN = res.coefficients[0]
+kGAL = res.coefficients[1]
 
+print(f"{kAGN=}")
+print(f"{kGAL=}")
 
 
 # Plotting results
