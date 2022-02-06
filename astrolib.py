@@ -3,6 +3,7 @@ import astropy.units as u
 from astropy.units import cds
 
 import pandas as pd
+import numpy as np
 import math
 from scipy import interpolate
 
@@ -122,7 +123,20 @@ class AstroObject:
                 # self.data['Fni_log'][i] = 0;
                 # self.data['errFni_log'][i] = 0;
                 self.data['Flam_log'][i] = 0;
-                # self.data['errFlam_log'][i] = 0;                
+                # self.data['errFlam_log'][i] = 0;
+                
+        plot_y = []
+        for i in range(len(self.data['Flam_log'])):
+            plot_y.append(self.data['lambda'][i] * self.data['Flam'][i] )
+        self.data['norm_flux'] = plot_y   
+
+    def normalize(self):
+        fobs = np.multiply(self.data['lambda'].to_numpy(), self.data['Flam'].to_numpy())
+        fobs_err = self.data[['errFlam']].to_numpy().flatten()
+
+        self.norm = fobs.max()
+        self.norm_data = fobs / self.norm
+        self.norm_err = fobs_err / self.norm
 
 
 class LibraryObject:
@@ -156,6 +170,14 @@ class LibraryObject:
             self.load_data()
         else:
             self.set_data(data)
+
+
+    def prepare_plot(self, coefficient = 1):
+        plot_y = []
+        for i in range(len(self.data['Flam_log'])):
+            plot_y.append(self.data['Flam'][i] * self.data['lambda_em'][i] * coefficient)
+        self.data['norm_flux'] = plot_y
+        
 
     def load_data(self):
         with open (self.id, 'r') as mf:
@@ -228,8 +250,14 @@ class LibraryObject:
         self.interpolated_data = pd.DataFrame(temp_model)
         
     def normalize(self):
-            self.norm =self.data['Flam'].max()
-            self.data['Flam']=self.data['Flam']/self.norm
+        if (hasattr(self, 'interpolated_data') and 'Flam' in self.interpolated_data):
+           f = np.multiply(self.interpolated_data['Flam'].to_numpy(), self.interpolated_data['lambda_em'].to_numpy())
+           self.norm = f.max()
+           self.norm_data = f / self.norm
+        else:
+            print(f"ERROR: model {self.id} missing required data (Flam).")
+            print(self.data.head())
+
     
     def calc_measured_values2(self, lambda_em):
         """
@@ -244,30 +272,38 @@ class LibraryObject:
         """
         temp_model = []
 
-        for ao_le in lambda_em:
-            low_index,  high_index = (0, len(self.data['lambda_em'])) # variables to store the index of the tempalte array
-            if (ao_le <self.data['lambda_em'].iloc[low_index]) or (ao_le>self.data['lambda_em'].iloc[high_index-1]):
-               temp_model.append({'lambda_em': ao_le,
-                               'Flam':  0}) 
+        if ('lambda_em' in self.data):
+            for ao_le in lambda_em:
+                low_index,  high_index = (0, len(self.data['lambda_em'])) # variables to store the index of the tempalte array
+                if (ao_le <self.data['lambda_em'].iloc[low_index]) or (ao_le>self.data['lambda_em'].iloc[high_index-1]):
+                   temp_model.append({'lambda_em': ao_le,
+                                   'Flam':  0}) 
+                    
+                else:
+                     while True:
+                          if high_index-low_index ==1 or high_index-low_index==0:
+                              lower = self.data['lambda_em'].iloc[high_index-1]
+                              higher = self.data['lambda_em'].iloc[high_index]
+                              low_element = self.data['Flam'].iloc[high_index-1]
+                              high_element = self.data['Flam'].iloc[high_index]
+                              break
+                              
+                          middle_index = int((high_index+low_index)/2)
+                          if ao_le < self.data['lambda_em'].iloc[middle_index]:
+                               high_index = middle_index
+                          elif ao_le >= self.data['lambda_em'].iloc[middle_index]:
+                               low_index = middle_index
                 
-            else:
-                 while True:
-                      if high_index-low_index ==1 or high_index-low_index==0:
-                          lower = self.data['lambda_em'].iloc[high_index-1]
-                          higher = self.data['lambda_em'].iloc[high_index]
-                          low_element = self.data['Flam'].iloc[high_index-1]
-                          high_element = self.data['Flam'].iloc[high_index]
-                          break
-                          
-                      middle_index = int((high_index+low_index)/2)
-                      if ao_le < self.data['lambda_em'].iloc[middle_index]:
-                           high_index = middle_index
-                      elif ao_le >= self.data['lambda_em'].iloc[middle_index]:
-                           low_index = middle_index
-            
-                 interp = float(low_element) +((float(high_element)-float(low_element))/(higher-lower))*(ao_le-lower)
-                 temp_model.append({'lambda_em': ao_le,
-                               'Flam':  float(interp)})
-        # print(temp_model)
-        self.interpolated_data = pd.DataFrame(temp_model)
+                     interp = float(low_element) +((float(high_element)-float(low_element))/(higher-lower))*(ao_le-lower)
+                     temp_model.append({'lambda_em': ao_le,
+                                   'Flam':  float(interp)})
+            # print(temp_model)
+            self.interpolated_data = pd.DataFrame(temp_model)
+        else:
+            print(f"ERROR: model {self.id} missing required data (lambda_em).")
+            print(self.data.head())
 
+class Library:
+    def __init__(self, filename, data):
+        self.name = filename
+        self.data = data

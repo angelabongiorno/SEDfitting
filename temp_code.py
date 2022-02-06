@@ -1,4 +1,14 @@
+import pandas as pd
+import numpy as np
+
+
 import astrolib as al
+
+
+
+
+
+
 
 def sum_library_objects(lo_array):
     sum_data = np.zeros(( len(lo_array[0]), len(lo_array[0][0])))
@@ -69,5 +79,5 @@ def sum_astro_data(m1, m2, index = 'lambda_em', value = 1):
     df[index] = sum_index
     df[value] = sum_value
 
-    return LibraryObject('sum', df )
+    return al.LibraryObject('sum', df )
 
