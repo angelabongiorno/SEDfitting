@@ -1,4 +1,5 @@
 
+import re
 import fortranformat as ff
 import time
 import pickle
@@ -180,6 +181,8 @@ print(f"Interpolated and normalized all library objects in {toc-tic:0.4f} second
 
 # Calculating coefficients for library objects
 
+bestResult = None
+
 if (os.path.isfile("results.csv")):
     print("Reading results from file.")
     results_pd = pd.read_csv("results.csv")
@@ -187,10 +190,13 @@ else:
     object_array = [ lib.data for lib in libraryArray]
     combinations = list(product(*object_array))
 
+    combinations = combinations[69000:70000]
+
     print(f"Number of combinations: {len(combinations)}")
     tic = time.perf_counter()
 
     results = []
+    
     for step in combinations:
         inner_tic = time.perf_counter()
         step_array = np.asarray(step)
@@ -204,6 +210,7 @@ else:
         resultDict["Red Chi2"] = res.red_chi2
         for i in range(len(step_array)):
             resultDict[f"Coeff {i}"] = res.coefficients[i]
+            print(res.coefficients)
         resultDict["Time"] = inner_toc-inner_tic
 
         results.append(resultDict)
@@ -214,18 +221,23 @@ else:
     results_pd = pd.DataFrame(results)
     results_pd.to_csv("results.csv")
 
+bestResult = results_pd.iloc[ results_pd["Chi2"].idxmin() ]
 
-agn = libraryArray[0].data[81]
-gal = libraryArray[1].data[18]
+print(bestResult)
 
-input_models = [agn, gal]
+bestResultObjects = []
+for i in range(len(libraryArray)):
+    bestResultObjects.append(libraryArray[i].findLibraryObject(bestResult[f"{i}"]))
 
-res = al.optimize_coefficients(MeasuredObject, input_models)
+for item in bestResultObjects:
+    item.print()
 
-print(res.to_str())
+agn = bestResultObjects[0]
+gal = bestResultObjects[1]
 
-kAGN = res.coefficients[0]
-kGAL = res.coefficients[1]
+
+kAGN = bestResult["Coeff 0"]
+kGAL = bestResult["Coeff 1"]
 
 print(f"{kAGN=}")
 print(f"{kGAL=}")

@@ -78,9 +78,11 @@ class AstroObject:
         err_high_limit : float
             The high limit of the error, defaults to 0.05.
         """
-        for i in range(len(self.data['err'])):            
-            if err_low_limit <= self.data['err'][i]  < err_high_limit:
-                self.data['err'][i] = math.sqrt(0.05**2+(0.1*0.05)**2) # TODO: Why was this?
+        for i in range(len(self.data['err'])):
+        #   if err_low_limit <= self.data['err'][i]  < err_high_limit:
+        #       self.data['err'][i] = math.sqrt(0.05**2+(0.1*0.05)**2) # TODO: Why was this? 
+            if self.data['err'][i]  < err_low_limit:
+                self.data['err'][i] = np.sqrt(err_low_limit**2+( self.data['err'][i])**2) 
 
     def add_lambda(self, lambdaArray):
         """
@@ -135,7 +137,9 @@ class AstroObject:
         self.data['norm_flux'] = plot_y   
 
     def normalize(self):
-        fobs = np.multiply(self.data['lambda'].to_numpy(), self.data['Flam'].to_numpy())
+        # fobs = np.multiply(self.data['lambda'].to_numpy(), self.data['Flam'].to_numpy())
+        fobs = self.data['Flam'].to_numpy()
+
         fobs_err = self.data[['errFlam']].to_numpy().flatten()
 
         self.norm = fobs.max()
@@ -255,9 +259,10 @@ class LibraryObject:
         
     def normalize(self):
         if (hasattr(self, 'interpolated_data') and 'Flam' in self.interpolated_data):
-           f = np.multiply(self.interpolated_data['Flam'].to_numpy(), self.interpolated_data['lambda_em'].to_numpy())
-           self.norm = f.max()
-           self.norm_data = f / self.norm
+            # f = np.multiply(self.interpolated_data['Flam'].to_numpy(), self.interpolated_data['lambda_em'].to_numpy())
+            f = self.interpolated_data['Flam'].to_numpy()
+            self.norm = f.max()
+            self.norm_data = f / self.norm
         else:
             print(f"ERROR: model {self.id} missing required data (Flam).")
             print(self.data.head())
@@ -311,6 +316,12 @@ class Library:
     def __init__(self, filename, data):
         self.name = filename
         self.data = data
+
+    def findLibraryObject(self, id):
+        for item in self.data:
+            if (item.id == id):
+                return item
+
 
 
 class Result:
