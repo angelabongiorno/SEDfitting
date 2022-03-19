@@ -8,4 +8,5 @@ a.out
 *.tmp
 *.exe
 *.f
+*.csv
 __pycache__

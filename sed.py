@@ -13,6 +13,7 @@ from scipy import interpolate
 from scipy import optimize
 from itertools import product 
 import os
+import multiprocessing as mp
 
 import astrolib as al
 import temp_code as tc
@@ -70,6 +71,24 @@ def read_lambda_file(filename, fformat):
 # 
 #     return(err)
  
+def optimize_single_step(MeasuredObject, step):
+    inner_tic = time.perf_counter()
+    step_array = np.asarray(step)
+    res = al.optimize_coefficients(MeasuredObject, step_array)
+    inner_toc = time.perf_counter()
+
+    resultDict = {}
+    for i in range(len(step_array)):
+        resultDict[f"{i}"] = step_array[i].id
+    resultDict["Chi2"] = res.chi2
+    resultDict["Red Chi2"] = res.red_chi2
+    for i in range(len(step_array)):
+        resultDict[f"Coeff {i}"] = res.coefficients[i]
+        #print(res.coefficients)
+    resultDict["Time"] = inner_toc-inner_tic
+
+    return resultDict
+
 
 def main():
 
@@ -191,30 +210,21 @@ def main():
         object_array = [ lib.data for lib in libraryArray]
         combinations = list(product(*object_array))
 
-        combinations = combinations[69000:70000]
+        # combinations = combinations[69000:70000]
 
         print(f"Number of combinations: {len(combinations)}")
         tic = time.perf_counter()
 
         results = []
-
+        
         for step in combinations:
-            inner_tic = time.perf_counter()
-            step_array = np.asarray(step)
-            res = al.optimize_coefficients(MeasuredObject, step_array)
-            inner_toc = time.perf_counter()
+            res = optimize_single_step(MeasuredObject, step)
+        
+            results.append(res)
 
-            resultDict = {}
-            for i in range(len(step_array)):
-                resultDict[f"{i}"] = step_array[i].id
-            resultDict["Chi2"] = res.chi2
-            resultDict["Red Chi2"] = res.red_chi2
-            for i in range(len(step_array)):
-                resultDict[f"Coeff {i}"] = res.coefficients[i]
-                #print(res.coefficients)
-            resultDict["Time"] = inner_toc-inner_tic
-
-            results.append(resultDict)
+        # pool = mp.Pool(mp.cpu_count())
+        # print(f"Using {mp.cpu_count()} parallel processes.")
+        # results = pool.starmap(optimize_single_step, [(MeasuredObject, step) for step in combinations])
 
         toc = time.perf_counter()
         print(f"Calculating all combinations in {toc-tic:0.4f} seconds.")
