@@ -105,14 +105,14 @@ class AstroObject:
         
         Flam = []
         for i in range(len(self.data['Fni'])):
-            Flam.append( self.data['Fni'][i] * cds.c.to(u.angstrom / u.s) / (self.data['lambda'][i]**2))
-            # Flam.append( self.data['Fni'][i] * cds.c.to(u.angstrom / u.s) / (self.data['lambda'][i]))
+            # Flam.append( self.data['Fni'][i] * cds.c.to(u.angstrom / u.s) / (self.data['lambda'][i]**2))
+            Flam.append( self.data['Fni'][i] * cds.c.to(u.angstrom / u.s) / (self.data['lambda'][i]))
         self.data['Flam'] = Flam
         
         errFlam = []
         for i in range(len(self.data['errFni'])):
-            errFlam.append( self.data['errFni'][i] * cds.c.to(u.angstrom / u.s)/(self.data['lambda'][i]**2))
-            # errFlam.append( self.data['errFni'][i] * cds.c.to(u.angstrom / u.s)/(self.data['lambda'][i]))
+            # errFlam.append( self.data['errFni'][i] * cds.c.to(u.angstrom / u.s)/(self.data['lambda'][i]**2))
+            errFlam.append( self.data['errFni'][i] * cds.c.to(u.angstrom / u.s)/(self.data['lambda'][i]))
         self.data['errFlam'] = errFlam
 
         # self.data['freq_em_log'] = [ math.log10(i) for i in self.data['freq_em']]
@@ -185,8 +185,8 @@ class LibraryObject:
     def prepare_plot(self, coefficient = 1):
         plot_y = []
         for i in range(len(self.data['Flam_log'])):
-            plot_y.append(self.data['Flam'][i] * self.data['lambda_em'][i] * coefficient)
-            # plot_y.append(self.data['Flam'][i] * coefficient)
+            # plot_y.append(self.data['Flam'][i] * self.data['lambda_em'][i] * coefficient)
+            plot_y.append(self.data['Flam'][i] * coefficient)
         self.data['norm_flux'] = plot_y
         
 
@@ -205,7 +205,7 @@ class LibraryObject:
         if ('Flam_log' in self.data):
             self.data['Flam_log'] = [ x if x > 0 else 0 for x in self.data['Flam_log'] ]
             self.data['Flam'] = [ 10 ** x for x in self.data['Flam_log']]
-            # self.data['Flam'] = self.data['Flam'] * self.data['lambda_em']
+            self.data['Flam'] = self.data['Flam'] * self.data['lambda_em']
 
         else:
             print(f"ERROR: model {self.id} missing required data.")

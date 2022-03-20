@@ -215,33 +215,37 @@ def main():
         print(f"Number of combinations: {len(combinations)}")
         tic = time.perf_counter()
 
-        results = []
-        
-        for step in combinations:
-            res = optimize_single_step(MeasuredObject, step)
-        
-            results.append(res)
+        # results = []
+        # 
+        # for step in combinations:
+        #     res = optimize_single_step(MeasuredObject, step)
+        # 
+        #     results.append(res)
 
-        # pool = mp.Pool(mp.cpu_count())
-        # print(f"Using {mp.cpu_count()} parallel processes.")
-        # results = pool.starmap(optimize_single_step, [(MeasuredObject, step) for step in combinations])
+        pool = mp.Pool(mp.cpu_count())
+        print(f"Using {mp.cpu_count()} parallel processes.")
+        results = pool.starmap(optimize_single_step, [(MeasuredObject, step) for step in combinations])
 
         toc = time.perf_counter()
-        print(f"Calculating all combinations in {toc-tic:0.4f} seconds.")
+        print(f"Calculated all combinations in {toc-tic:0.4f} seconds.")
 
         results_pd = pd.DataFrame(results)
         results_pd.to_csv("results.csv")
 
     bestResult = results_pd.iloc[ results_pd["Chi2"].idxmin() ]
 
-    print(bestResult)
+    for i, (columnName, columnData) in enumerate(bestResult.iteritems()):
+        if i == 0:
+            print(f"\nThe best solution is index: {bestResult[0]}.")
+        else:
+            print(f"{columnName}:\t{columnData}")
 
     bestResultObjects = []
     for i in range(len(libraryArray)):
         bestResultObjects.append(libraryArray[i].findLibraryObject(bestResult[f"{i}"]))
 
-    for item in bestResultObjects:
-        item.print()
+    # for item in bestResultObjects:
+    #     item.print()
 
     agn = bestResultObjects[0]
     gal = bestResultObjects[1]
@@ -250,8 +254,8 @@ def main():
     kAGN = bestResult["Coeff 0"]
     kGAL = bestResult["Coeff 1"]
 
-    print(f"{kAGN=}")
-    print(f"{kGAL=}")
+    # print(f"{kAGN=}")
+    # print(f"{kGAL=}")
 
 
     # Plotting results
@@ -284,7 +288,7 @@ def main():
     plt.yscale("log")
     plt.xscale("log")
     plt.grid(True)
-    plt.show()
+    # plt.show()
 
 
 
